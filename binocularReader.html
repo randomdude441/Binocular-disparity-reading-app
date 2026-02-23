@@ -1,0 +1,388 @@
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Text Effect - Interactive (POS Added Minimally)</title>
+    <!-- 1. Include compromise library -->
+    <script src="https://unpkg.com/compromise"></script>
+    <style>
+        body {
+          margin: 0;
+            padding: 0;
+            background-color: #fff;
+            height: 100vh;
+            display: flex;
+          
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: #fff;
+            font-family: Arial, sans-serif;
+        }
+
+        .container {
+           width: 600px; /* Original */
+           max-width: 100%; /* Original */
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 300px; /* Original */
+            
+        }
+
+        /* Original Highlight */
+        .highlight {
+            background-color: yellow;
+            color: black !important; /* Added !important to ensure visibility over POS colors */
+            /* Optional padding/radius */
+            padding: 0.05em 0;
+            border-radius: 2px;
+        }
+
+        .text {
+        position: absolute;
+    color: #000;
+    font-size: 20px;
+    user-select: none;
+    pointer-events: none;
+   /* text-shadow: 2px 2px 4px rgba(0,0,0,0.7);*/
+    top: 0; /* Added to position the text at the top */
+    left: 0%; /* Added to center the text horizontally  */ 
+    transform: translateX(-50%); /* Added to center the text horizontally */
+            
+        }
+      
+      
+      
+
+        /* Left Text - Original styling (width/transform set by JS) */
+        .left {
+           width: 250px; */ /* Set by JS */
+           transform: translateX(-20px); */ /* Set by JS */
+          
+        }
+
+        /* Right Text - Original styling (width/transform set by JS) */
+        .right {
+           width: 250px; */ /* Set by JS */
+           transform: translateX(20px); */ /* Set by JS */
+          
+        }
+
+        /* --- 2. NEW POS Specific Color Classes --- */
+       /* --- NEW POS Specific Colors --- */
+        /* Apply color to the outer word span, let it inherit */
+        .noun { color: #007bff; } /* Blue */
+        .verb { color: #dc3545; } /* Red */
+        .adjective { color: #28a745; } /* Green */
+        .other-pos { color: #555; } /* Dark Gray for others */
+
+        /* --- REMOVE or COMMENT OUT THIS CONFLICTING RULE --- */
+        /* .text span span { color: #000; } */
+        /* --- End POS Colors --- */
+
+
+      .ruler-container{
+            /* Original - but visibility:hidden is better */
+            position: absolute;
+            visibility: hidden;
+            height: auto;
+            width: auto;
+            white-space: nowrap;
+      }
+       #ruler {
+            /* Original had .hidden class, using visibility now */
+            font-size: 20px; /* Match text */
+            font-family: Arial, sans-serif; /* Match text */
+        }
+
+        /* Slider Styles - Original */
+        .slider-container {
+            position: fixed;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #ccc; /* Adjusted slightly */
+            color: #000;
+            padding: 10px;
+            z-index: 10; /* Ensure slider is on top */
+            border-radius: 5px;
+        }
+
+        .slider-container input[type="range"] {
+            width: 400px; /* Adjusted */
+            margin: 0 10px;
+             vertical-align: middle;
+        }
+
+        .slider-container label,
+        .slider-container span {
+            font-size: 16px; /* Adjusted */
+            vertical-align: middle;
+        }
+         .slider-container span {
+             display: inline-block;
+             min-width: 40px;
+             text-align: right;
+         }
+
+        /* Hide slider while updating - Original */
+        .hidden {
+            opacity: 0;
+             transition: opacity 0.5s ease-out; /* Added transition */
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <!-- Use separate IDs for clarity, keep class="text left/right" -->
+        <div class="text left" id="left-text">
+      A Hare was making fun of the Tortoise one day for being so slow.
+
+"Do you ever get anywhere?" he asked with a mocking laugh.
+
+"Yes," replied the Tortoise, "and I get there sooner than you think. I'll run you a race and prove it."
+
+The Hare was much amused at the idea of running a race with the Tortoise, but for the fun of the thing he agreed. So the Fox, who had consented to act as judge, marked the distance and started the runners off.
+
+The Hare was soon far out of sight, and to make the Tortoise feel very deeply how ridiculous it was for him to try a race with a Hare, he lay down beside the course to take a nap until the Tortoise should catch up.
+
+
+The Tortoise meanwhile kept going slowly but steadily, and, after a time, passed the place where the Hare was sleeping. But the Hare slept on very peacefully; and when at last he did wake up, the Tortoise was near the goal. The Hare now ran his swiftest, but he could not overtake the Tortoise in time.
+
+The race is not always to the swift.
+</div>
+        <div class="text right" id="right-text"></div>
+    </div>
+
+    <div class="ruler-container">
+       <span id="ruler"></span> <!-- Original ruler -->
+    </div>
+
+    <div class="slider-container">
+        <label for="offsetRange">Adjust Offset:</label>
+        <!-- Original slider range/value -->
+        <input type="range" id="offsetRange" min="0" max="500" value="20"> <!-- Using 20 default from prev step -->
+        <span id="offsetValue">20px</span> <!-- Value display -->
+    </div>
+
+    <script>
+      /* global nlp */ // Inform linter
+
+      // --- Original Variable Declarations ---
+      var rightSaved=""; // Original
+      var leftSaved=""; // Original
+      var num=0; // Original
+      const leftText = document.getElementById('left-text'); // Use ID
+      const rightText = document.getElementById('right-text'); // Use ID
+      const offsetRange = document.getElementById('offsetRange'); // Original
+      const offsetValueDisplay = document.getElementById('offsetValue'); // Use clearer name
+      const sliderContainer = document.querySelector('.slider-container'); // Original
+      // Original used textElement, getting text directly now
+      const initialContentElement = document.getElementById('left-text'); // Get element with initial text
+      const originalText = initialContentElement.innerText; // Store original text - Original method
+      const words = originalText.split(/\s+/); // Split on one or more whitespace characters - Original method
+      console.log("Word count:", words.length); // Original log
+
+      const ruler = document.getElementById('ruler'); // Original ruler selection
+
+      // --- NEW: Pre-calculate POS tags ---
+      // Split the originalText into words based on whitespace
+ //const words = originalText.split(/\s+/);
+
+ // Array to store the POS class for each word
+ let wordTags = [];
+
+  if (typeof nlp !== 'undefined') {
+            const doc = nlp(originalText);
+            const terms = doc.terms().json();
+   console.log("Compromise terms:", terms); // Keep this log for now
+   let wordIndexMap = 0;
+            // Iterate through each term provided by compromise
+            terms.forEach(termData => {
+                // Remove punctuation from the term and word for comparison
+                const cleanTermText = termData.text.replace(/[.,!?;:]$/, '');
+                //const cleanWordText = words[wordIndexMap]?.replace(/[.,!?;:]$/, ''); // Use optional chaining
+
+                //If the term is not whitespace
+                if (!termData.text.match(/^\s+$/)) {
+                    // Check if there is a word to map to
+                    if (wordIndexMap < words.length) {
+                      //The default assignment is other
+                        let mainTag = 'other-pos';
+                        if (termData.terms && Array.isArray(termData.terms) && termData.terms.length > 0) {
+                            const firstTerm = termData.terms[0];
+                            if (firstTerm.tags && Array.isArray(firstTerm.tags)) {
+                                const lowerCaseTags = firstTerm.tags.map(tag => tag.toLowerCase());
+                                if (lowerCaseTags.includes('noun')) mainTag = 'noun';
+                                else if (lowerCaseTags.includes('verb')) mainTag = 'verb';
+                                else if (lowerCaseTags.includes('adjective')) mainTag = 'adjective';
+                            }
+                        }
+                        wordTags[wordIndexMap] = mainTag;
+                    }
+                    // Only increment if the term is not white space
+                    wordIndexMap++;
+                }
+            });
+   
+          // Fill remaining words with default if needed
+          for (let i = wordIndexMap; i < words.length; i++) {
+              if (!wordTags[i]) wordTags[i] = 'other-pos';
+          }
+      } else {
+          console.error("Compromise library (nlp) not loaded!");
+          // Fill with default if library fails
+          wordTags = words.map(() => 'other-pos');
+      }
+      console.log("Assigned POS Classes:", wordTags);
+      // --- End NEW POS tagging ---
+
+
+      // --- Original updateOffset Function ---
+      function updateOffset(value) {
+             //console.log(value);
+     num++
+if(num>10)       sliderContainer.classList.add('hidden'); // Hide slider 
+            leftText.style.transform = `translateX(-${value}px)`;
+            rightText.style.transform = `translateX(${value}px)`;
+          
+     leftText.style.width = `${value*2-20}px`;
+               rightText.style.width = `${value*2-20}px`;
+
+            offsetValue.textContent = `${value*2}px`;
+          //  setTimeout(() => sliderContainer.classList.remove('hidden'), 1000000000); // Show slider after 100ms
+      }
+
+      // Initialize with default value - Original call
+      updateOffset(offsetRange.value);
+
+      // Event listener for slider - Original
+      offsetRange.addEventListener('input', (e) => {
+          updateOffset(e.target.value);
+      });
+
+      // --- Original Letter Span Creation Loop (Modified ONLY to add POS class) ---
+      let wordIndex = 0; // Keep original separate index if needed, though loop uses `i`
+      // const leftText2 = document.querySelector('.left'); // Original selection
+      leftText.innerHTML = ""; // Clear initial text before building spans
+      for (let i = 0; i < words.length; i++) {
+            const wordSpan = document.createElement('span');
+            wordSpan.id = `leftWord-${i}`; // Assign unique ID - Original ID format
+
+            // --- 4. ADD POS CLASS TO OUTER WORD SPAN ---
+            const posClass = wordTags[i]; // Get pre-calculated class name
+            if (posClass) {
+                wordSpan.classList.add(posClass);
+            } else {
+                 wordSpan.classList.add('other-pos'); // Fallback
+            }
+            // --- End POS class addition ---
+
+            // --- Inner Loop for Letters - UNCHANGED ---
+            for (let j = 0; j < words[i].length; j++) {
+                const letter = words[i][j];
+                const letterSpan = document.createElement('span');
+                // Original letter coloring commented out - KEEP COMMENTED
+                // letterSpan.style.color = colors[letters.indexOf(letter)];
+                letterSpan.innerText = letter;
+                wordSpan.appendChild(letterSpan);
+            }
+            // --- End Inner Loop ---
+
+            leftText.appendChild(wordSpan); // Append word span
+            leftText.appendChild(document.createTextNode(' ')); // Add space - Original method
+      }
+
+      // --- Original Duplication for Right Text ---
+      // const rightText2 = document.querySelector('.right'); // Original selection
+      rightText.innerHTML = leftText.innerHTML.replace(/leftWord-/g, "rightWord-"); // Original method
+
+      // --- Original Saving mechanism --- (May not be strictly needed now, but keeping)
+      rightSaved=rightText.innerHTML;
+      leftSaved=leftText.innerHTML;
+
+
+      // --- Original Timing Calculation ---
+      var sleepArr=[];
+      console.log("Words for timing:", words);
+      function measureTextWidth(text) { // Original function
+            // Ensure ruler is visible for measurement, then hide
+            ruler.style.visibility = 'visible';
+            ruler.textContent = text;
+            const width = ruler.offsetWidth;
+            ruler.textContent = ''; // Clear ruler
+             ruler.style.visibility = 'hidden'; // Hide again
+            return width;
+      }
+      for(let i=0; i<words.length; i++){
+           // Original timing calculation formula - KEEP THIS
+            const wordWidth = measureTextWidth(words[i]);
+            if (wordWidth > 0) { // Avoid division by zero for empty strings if any
+                 sleepArr[i] = (12000 * wordWidth) / (850 * 7.8); // Original formula
+            } else {
+                 sleepArr[i] = 100; // Default short delay for zero-width words
+            }
+      }
+      console.log("Sleep Array (ms):", sleepArr);
+      // --- End Original Timing ---
+
+
+      // --- Original highlightNextWord Function - UNCHANGED ---
+       let highlightWordIndex = 0; // Use a separate index for clarity if needed
+       function highlightNextWord() {
+            if (highlightWordIndex >= words.length) {
+                 console.log("Highlighting finished."); // Original log
+                 // Optional: Clear last highlight
+                 if (highlightWordIndex > 0) {
+                    const previousWordSpanL = document.getElementById(`leftWord-${highlightWordIndex - 1}`);
+                    const previousWordSpanR = document.getElementById(`rightWord-${highlightWordIndex - 1}`);
+                    if(previousWordSpanL) previousWordSpanL.classList.remove('highlight');
+                    if(previousWordSpanR) previousWordSpanR.classList.remove('highlight');
+                 }
+                 return; // Original stop
+            }
+
+            // Remove highlight from the previous word (index highlightWordIndex - 1)
+            if (highlightWordIndex > 0) {
+                const previousWordSpanL = document.getElementById(`leftWord-${highlightWordIndex - 1}`);
+                const previousWordSpanR = document.getElementById(`rightWord-${highlightWordIndex - 1}`);
+                // Use classList.remove for safety (original used toggle)
+                if(previousWordSpanL) previousWordSpanL.classList.remove('highlight');
+                if(previousWordSpanR) previousWordSpanR.classList.remove('highlight');
+            }
+
+            // Add highlight to the current word (index highlightWordIndex)
+            const currentWordSpanL = document.getElementById(`leftWord-${highlightWordIndex}`);
+            const currentWordSpanR = document.getElementById(`rightWord-${highlightWordIndex}`);
+            // Use classList.add for safety (original used toggle)
+             if(currentWordSpanL) currentWordSpanL.classList.add('highlight');
+             if(currentWordSpanR) currentWordSpanR.classList.add('highlight');
+
+
+            // Original increment and scheduling logic
+            const delay = sleepArr[highlightWordIndex] || 200; // Use calculated or default delay
+             highlightWordIndex++; // Increment for next call
+
+             requestAnimationFrame(() => { // Original scheduling
+                setTimeout(highlightNextWord, delay); // Use calculated delay
+             });
+        }
+        // --- End Original highlightNextWord ---
+
+
+        // --- Original Start Highlight Call ---
+        setTimeout(highlightNextWord, 2000); // Original delay
+
+        // Original color arrays - KEEP (even if unused) to minimize changes
+        var A = "rgb(255,0,0)"; var B = "rgb(220,60,50)"; var C = "rgb(255,120,0)"; var D = "rgb(255,180,0)"; var E = "rgb(255,240,0)"; var F = "rgb(210,255,0)"; var G = "rgb(150,255,0)"; var H = "rgb(150,200,0)"; var I = "rgb(230,230,230)"; var J = "rgb(0,255,255)"; var K = "rgb(0,255,90)"; var L = "rgb(255,0,255)"; var M = "rgb(0,200,150)"; var N = "rgb(0,240,175)"; var O = "rgb(0,180,255)"; var P = "rgb(0,120,255)"; var Q = "rgb(0,60,200)"; var R = "rgb(117,216,230)"; var S = "rgb(60,0,255)"; var T = "rgb(255,255,150)"; var U = "rgb(180,50,255)"; var V = "rgb(147,112,219)"; var W = "rgb(150,0,210)"; var X = "rgb(255,0,150)"; var Y = "rgb(155,34,34)"; var Z = "rgb(255,150,150)";
+        var colors = [A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U,V,W,X,Y,Z,A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U,V,W,X,Y,Z];
+        var letters = ["a","b","c","d","e","f","g","h","i","j","k","l","m","n","o","p","q","r","s","t","u","v","w","x","y","z","A","B","C","D","E","F","G","H","I","J","K","L","M","N","O","P","Q","R","S","T","U","V","W","X","Y","Z"];
+
+
+    </script>
+
+</body>
+</html>
