@@ -1,4 +1,5 @@
 # Binocular-disparity-reading-app
+<img width="762" height="479" alt="image" src="https://github.com/user-attachments/assets/1477371c-d31e-4d10-b685-3a78ff271d24" />
 
 ## What it does
 1. Highlights one word at a time to follow along with and test the limits of your reading speed.
